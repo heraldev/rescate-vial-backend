@@ -1,5 +1,6 @@
 const providerService = require('../services/providerService');
 
+//obtiene marcas de autos
 const getBrands = async (req, res) => {
     try {
         const brands = await providerService.listBrands();
@@ -9,6 +10,7 @@ const getBrands = async (req, res) => {
     }
 };
 
+//obtiene modelos de autos por marca
 const getModels = async (req, res) => {
     try {
         const { id_brand } = req.params;
@@ -19,6 +21,7 @@ const getModels = async (req, res) => {
     }
 };
 
+/* Actualmente no se usan estas funciones, pero se dejan comentadas por si se desea usar la api de NHTSA
 
 // Api para obtener vehiculos NHTSA
 const getBrandsNH = async (req, res) => {
@@ -29,6 +32,7 @@ const getBrandsNH = async (req, res) => {
     res.status(500).json({ message: 'Error al obtener marcas', error: error.message });
   }
 };
+
 const getModelsNH = async (req, res) => {
   try {
     const models = await authService.fetchModels(req.params.make);
@@ -38,18 +42,6 @@ const getModelsNH = async (req, res) => {
   }
 };
 
-const getProviders = async (req, res) => {
-  try {
-    const providers = await providerService.listProviders();
-    res.status(200).json({ ok: true, providers });
-  } catch (error) {
-    res.status(500).json({
-      ok: false,
-      message: "Error al obtener proveedores",
-      error: error.message
-    });
-  }
-};
+*/
 
-
-module.exports = { getBrands, getModels, getProviders };
+module.exports = { getBrands, getModels };

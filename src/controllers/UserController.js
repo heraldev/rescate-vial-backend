@@ -1,7 +1,6 @@
 const userService = require('../services/userService');
-const db = require('../config/db');
-const userMongoModel = require('../models/mysql/userMongoModel.js');
 
+//  U1. Agregar un auto
 const addCar = async (req, res) => {
   try {
     const {
@@ -28,18 +27,19 @@ const addCar = async (req, res) => {
       colour_usercar: colour_usercar ?? null,
     });
 
-    res.status(201).json({ message: 'Vehículo guardado', data: result });
+    res.status(201).json({ message: 'Vehículo agregado', data: result });
   } catch (error) {
-    res.status(500).json({ message: 'Error al guardar el vehículo', error: error.message });
+    res.status(500).json({ message: 'Error al agregar vehículo', error: error.message });
   }
 };
 
+// U2. Obtener autos del usuario para el dropdown
 const getUserCars = async (req, res) => {
   try {
     const { id_user } = req.body;
 
     if (!id_user) {
-      return res.status(400).json({ message: 'id_user es obligatorio' });
+      return res.status(400).json({ message: 'el id user es obligatorio' });
     }
 
     const cars = await userService.getUserCars(id_user);
@@ -49,12 +49,13 @@ const getUserCars = async (req, res) => {
   }
 };
 
+// U3. Obtener datos de los autos del usuario para la vista completa de sus autos
 const getCarById = async (req, res) => {
   try {
     const { id_usercar } = req.body;
 
     if (!id_usercar) {
-      return res.status(400).json({ message: 'id_usercar es obligatorio' });
+      return res.status(400).json({ message: 'el id usercar es obligatorio' });
     }
 
     const car = await userService.getCarById(id_usercar);
@@ -69,6 +70,7 @@ const getCarById = async (req, res) => {
   }
 };
 
+// U4. Usuario hace una peticion de asistencia
 const requestAssistance = async (req, res) => {
   try {
     const { id_user, id_usercar, issue_type, description, ubicacion } = req.body;
@@ -91,6 +93,7 @@ const requestAssistance = async (req, res) => {
   }
 };
 
+// U5. Cancelar la solicitud antes de que un taller la acepte
 const cancelAssistance = async (req, res) => {
   try {
     const { id_servicio } = req.body;
@@ -106,6 +109,7 @@ const cancelAssistance = async (req, res) => {
   }
 };
 
+// U6. El usuario confirma que el taller le asista
 const confirmAssistance = async (req, res) => {
   try {
     const { id_servicio, accion } = req.body;
@@ -125,6 +129,7 @@ const confirmAssistance = async (req, res) => {
   }
 };
 
+// U7. Estado de la peticion de asistencia 'en_proceso', 'aceptada', 'en_ruta', 'taller_llego', 'trabajo_en_proceso', 'trabajo_terminado', 'completada'
 const getServiceStatus = async (req, res) => {
   try {
     const { id_user } = req.params;
@@ -145,175 +150,7 @@ const getServiceStatus = async (req, res) => {
   }
 };
 
-
-
-
-
-
-
-
-//admin
-const obtenerConductores = async (req, res) => {
-  try {
-    const [rows] = await db.query(`
-      SELECT 
-        u.id_user,
-        u.name_user,
-        u.lastname1_user,
-        u.email_user,
-        u.date_register_user,
-        u.status_user,
-        COUNT(sh.id_history) AS servicios
-      FROM Users u
-      LEFT JOIN ServiceHistory sh ON u.id_user = sh.id_user
-      WHERE u.id_userrol = 3
-      GROUP BY u.id_user, u.name_user, u.lastname1_user, u.email_user, u.date_register_user, u.status_user
-      ORDER BY u.date_register_user DESC
-    `);
-
-    res.json({ ok: true, conductores: rows });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ ok: false, error: 'Error al obtener conductores' });
-  }
-};
-
-//panel general
-const obtenerDashboard = async (req, res) => {
-  try {
-    const [solicitudes] = await db.query(`
-      SELECT COUNT(*) AS totalSolicitudes
-      FROM taller_request
-    `);
-
-    const [proveedores] = await db.query(`
-      SELECT COUNT(*) AS totalProveedores
-      FROM UserTaller
-      WHERE status_taller = 1
-    `);
-
-    const [conductores] = await db.query(`
-      SELECT COUNT(*) AS totalConductores
-      FROM Users
-      WHERE id_userrol = 3
-    `);
-
-    const [servicios] = await db.query(`
-      SELECT COUNT(*) AS totalServicios
-      FROM ServiceHistory
-    `);
-
-    res.json({
-      ok: true,
-      dashboard: {
-        totalSolicitudes: solicitudes[0].totalSolicitudes || 0,
-        totalProveedores: proveedores[0].totalProveedores || 0,
-        totalConductores: conductores[0].totalConductores || 0,
-        totalServicios: servicios[0].totalServicios || 0
-      }
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      ok: false,
-      error: 'Error al obtener dashboard'
-    });
-  }
-};
-
-//PAGOS
-const obtenerPagos = async (req, res) => {
-  try {
-    const [rows] = await db.query(`
-      SELECT
-        sh.id_history,
-        sh.issue_type,
-        sh.fecha_solicitud,
-        sh.service_status,
-        sh.cost_service,
-        u.name_user,
-        u.lastname1_user,
-        ut.name_usertaller
-      FROM ServiceHistory sh
-      LEFT JOIN Users u ON sh.id_user = u.id_user
-      LEFT JOIN UserTaller ut ON sh.id_usertaller = ut.id_usertaller
-      ORDER BY sh.fecha_solicitud DESC, sh.id_history DESC
-    `);
-
-    res.json({ ok: true, pagos: rows });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      ok: false,
-      error: "Error al obtener pagos"
-    });
-  }
-};
-
-//REPORTES
-const obtenerReportes = async (req, res) => {
-  try {
-    const [solicitudes] = await db.query(`
-      SELECT COUNT(*) AS totalSolicitudes
-      FROM taller_request
-    `);
-
-    const [aprobadas] = await db.query(`
-      SELECT COUNT(*) AS totalAprobadas
-      FROM taller_request
-      WHERE status_tr = 'aprobado'
-    `);
-
-    const [servicios] = await db.query(`
-      SELECT
-        issue_type,
-        COUNT(*) AS total
-      FROM ServiceHistory
-      GROUP BY issue_type
-      ORDER BY total DESC
-    `);
-
-    const [proveedores] = await db.query(`
-      SELECT
-        ut.name_usertaller,
-        COUNT(sh.id_history) AS totalServicios
-      FROM UserTaller ut
-      LEFT JOIN ServiceHistory sh ON ut.id_usertaller = sh.id_usertaller
-      GROUP BY ut.id_usertaller, ut.name_usertaller
-      ORDER BY totalServicios DESC
-      LIMIT 5
-    `);
-
-    res.json({
-      ok: true,
-      reportes: {
-        totalSolicitudes: solicitudes[0].totalSolicitudes || 0,
-        totalAprobadas: aprobadas[0].totalAprobadas || 0,
-        servicios: servicios || [],
-        proveedores: proveedores || []
-      }
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      ok: false,
-      error: "Error al obtener reportes"
-    });
-  }
-};
-
-//simular ubicacion
-const getPosicion = async (req, res) => {
-  try {
-    const { id_servicio } = req.params;
-    const coords = await userService.getPosicionTaller(id_servicio); // ← via service
-    if (!coords) return res.status(404).json({ message: 'Sin posición' });
-    res.status(200).json({ lat: coords[1], lng: coords[0] });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
+// U8. El usuario confirma que el taller llego
 const confirmarLlegada = async (req, res) => {
   try {
     const { id_servicio } = req.body;
@@ -325,6 +162,7 @@ const confirmarLlegada = async (req, res) => {
   }
 };
 
+// U8. EL usuario confirmar que el taller ha terminado el trabajo
 const confirmarTrabajo = async (req, res) => {
   try {
     const { id_servicio } = req.body;
@@ -336,6 +174,7 @@ const confirmarTrabajo = async (req, res) => {
   }
 };
 
+// U9. El usuario califica al taller
 const calificar = async (req, res) => {
   try {
     const { id_servicio, estrellas, comentario } = req.body;
@@ -347,8 +186,7 @@ const calificar = async (req, res) => {
   }
 };
 
-
-
+// U10. Obtiene sus calificaciones
 const getMisCalificaciones = async (req, res) => {
   try {
     const { id_user } = req.params;
@@ -375,6 +213,93 @@ const getMisCalificaciones = async (req, res) => {
 };
 
 
+// FUNCIONES PARA LA BITACORA
+const updateMileage = async (req, res) => {
+  try {
+    const { id_usercar, new_mileage } = req.body;
+
+    const updatedLog = await userService.addMileageLog({
+      id_usercar,
+      new_mileage,
+    });
+
+    res.status(200).json({
+      ok: true,
+      message: 'Kilometraje actualizado correctamente',
+      data: updatedLog,
+    });
+  } catch (error) {
+    console.error('❌ Error en updateMileage:', error);
+    res.status(400).json({
+      ok: false,
+      message: error.message || 'Error al actualizar el kilometraje',
+    });
+  }
+};
+
+const getTiposServicio = async (req, res) => {
+  try {
+    const tipos = await userService.getTiposServicio();
+
+    res.status(200).json(tipos);
+  } catch (error) {
+    console.error('❌ Error en getTiposServicio:', error);
+    res.status(500).json({
+      ok: false,
+      message: 'Error al obtener los tipos de servicio',
+      error: error.message,
+    });
+  }
+};
+
+const crearBitacora = async (req, res) => {
+  try {
+    const data = req.body;
+
+    const nuevoRegistro = await userService.crearRegistro(data);
+
+    res.status(201).json({
+      ok: true,
+      message: 'Registro guardado exitosamente en la bitácora',
+      data: nuevoRegistro,
+    });
+  } catch (error) {
+    console.error('❌ Error en crearBitacora:', error);
+    res.status(500).json({
+      ok: false,
+      message: error.message || 'Error al guardar el registro en la bitácora',
+    });
+  }
+};
+
+const getBitacoraByServicio = async (req, res) => {
+  try {
+    const { id_usercar, id_tipo_servicio } = req.body; // O req.query si prefieres GET
+
+    const registros = await userService.obtenerRegistrosServicio(
+      id_usercar,
+      id_tipo_servicio
+    );
+
+    res.status(200).json({
+      ok: true,
+      data: registros,
+    });
+  } catch (error) {
+    console.error('❌ Error en getBitacoraByServicio:', error);
+    res.status(500).json({
+      ok: false,
+      message: error.message || 'Error al obtener los registros de la bitácora',
+    });
+  }
+};
+
+
+
+
+
+
+// U11. kilometraje para la neurona
 const getMaintenanceRecommendation = async (req, res) => {
   try {
     const { id_user, id_usercar, current_mileage } = req.body;
@@ -406,6 +331,17 @@ const getMaintenanceRecommendation = async (req, res) => {
   }
 };
 
+// U12. Simulación de ubicación
+const getPosicion = async (req, res) => {
+  try {
+    const { id_servicio } = req.params;
+    const coords = await userService.getPosicionTaller(id_servicio); // ← via service
+    if (!coords) return res.status(404).json({ message: 'Sin posición' });
+    res.status(200).json({ lat: coords[1], lng: coords[0] });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
 
 module.exports = {
@@ -416,14 +352,14 @@ module.exports = {
   cancelAssistance,
   confirmAssistance,
   getServiceStatus,
-  obtenerConductores,
-  obtenerDashboard,
-  obtenerPagos,
-  obtenerReportes,
   getPosicion,
   confirmarLlegada,
   confirmarTrabajo,
   calificar,
   getMisCalificaciones,
-  getMaintenanceRecommendation
+  getMaintenanceRecommendation,
+  updateMileage,
+  getTiposServicio,
+  crearBitacora,
+  getBitacoraByServicio,
 };

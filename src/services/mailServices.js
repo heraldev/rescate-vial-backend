@@ -23,7 +23,7 @@ const enviarSolicitudRegistrada = async ({ correo, nombre }) => {
 
   return enviarCorreo({
     to: correo,
-    subject: 'Solicitud registrada con éxito',
+    subject: 'Tu solicitud ha sido recibida - Solicitud de Registro de taller',
     html
   });
 };
@@ -33,7 +33,7 @@ const enviarSolicitudRechazada = async ({ correo, nombre, motivo }) => {
 
   return enviarCorreo({
     to: correo,
-    subject: 'Tu solicitud fue rechazada',
+    subject: 'Actualización de tu cuenta - Solicitud de Registro de taller',
     html
   });
 };
@@ -43,7 +43,7 @@ const enviarSolicitudAprobada = async ({ correo, nombre, linkCrearPassword }) =>
 
   return enviarCorreo({
     to: correo,
-    subject: 'Tu solicitud fue aprobada',
+    subject: '¡Felicidades! Has sido aprobado - Solicitud de Registro de taller',
     html
   });
 };

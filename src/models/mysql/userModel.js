@@ -1,61 +1,76 @@
 const db = require('../../config/db');
 
+// U1
 exports.insertUserCar = async ({
-    id_user,
-    type_usercar,
-    brand_usercar,
-    model_usercar,
-    year_usercar,
-    mileage_usercar,
-    colour_usercar,
+  id_user,
+  type_usercar,
+  brand_usercar,
+  model_usercar,
+  year_usercar,
+  mileage_usercar,
+  colour_usercar,
 }) => {
-    const [result] = await db.query(
-        `INSERT INTO UsersCars 
+  const [result] = await db.query(
+    `INSERT INTO UsersCars 
             (id_user, type_usercar, brand_usercar, model_usercar, year_usercar, mileage_usercar, colour_usercar)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [
-            id_user,
-            type_usercar,
-            brand_usercar,
-            model_usercar,
-            year_usercar,
-            mileage_usercar,
-            colour_usercar,
-        ]
-    );
-    return result;
+    [
+      id_user,
+      type_usercar,
+      brand_usercar,
+      model_usercar,
+      year_usercar,
+      mileage_usercar,
+      colour_usercar,
+    ]
+  );
+  return result;
 };
 
+// U2
 exports.getUserCarsByUser = async (id_user) => {
-    const [rows] = await db.query(
-        `SELECT id_usercar, type_usercar, brand_usercar, model_usercar, 
+  const [rows] = await db.query(
+    `SELECT id_usercar, type_usercar, brand_usercar, model_usercar, 
                 year_usercar, colour_usercar
          FROM UsersCars 
          WHERE id_user = ?
          ORDER BY id_usercar DESC`,
-        [id_user]
-    );
-    return rows;
+    [id_user]
+  );
+  return rows;
 };
 
+// U3
 exports.getCarById = async (id_usercar) => {
-    const [rows] = await db.query(
-        `SELECT 
-            id_usercar,
-            id_user,
-            type_usercar,
-            brand_usercar,
-            model_usercar,
-            year_usercar,
-            mileage_usercar,
-            colour_usercar
-         FROM UsersCars
-         WHERE id_usercar = ?`,
-        [id_usercar]
-    );
-    return rows[0] ?? null;
+  const [rows] = await db.query(
+    `SELECT 
+        c.id_usercar,
+        c.id_user,
+        c.type_usercar,
+        c.brand_usercar,
+        c.model_usercar,
+        c.year_usercar,
+        c.mileage_usercar AS initial_mileage,
+        COALESCE(m.value_mileage, c.mileage_usercar) AS current_mileage,
+        m.daterecorded_mileage AS last_mileage_update,
+        c.colour_usercar
+     FROM UsersCars c
+     LEFT JOIN (
+        SELECT id_usercar, value_mileage, daterecorded_mileage
+        FROM MileageLog
+        WHERE (id_usercar, daterecorded_mileage) IN (
+            SELECT id_usercar, MAX(daterecorded_mileage)
+            FROM MileageLog
+            GROUP BY id_usercar
+        )
+     ) m ON c.id_usercar = m.id_usercar
+     WHERE c.id_usercar = ?`,
+    [id_usercar]
+  );
+  return rows[0] ?? null;
 };
 
+// U7
 exports.getTallerByIdUser = async (id_user) => {
   const [rows] = await db.query(
     `SELECT 
@@ -75,7 +90,7 @@ exports.getTallerByIdUser = async (id_user) => {
   return rows[0] ?? null;
 };
 
-
+// U10
 exports.getMisCalificaciones = async (id_user) => {
   const [rows] = await db.query(`
     SELECT
@@ -120,6 +135,117 @@ exports.getMisCalificaciones = async (id_user) => {
 };
 
 
+// BITACORA
+
+// Obtener el último kilometraje (para calcular la diferencia)
+exports.getLatestMileage = async (id_usercar) => {
+  const [rows] = await db.query(
+    `SELECT value_mileage, start_mileage 
+     FROM MileageLog 
+     WHERE id_usercar = ? 
+     ORDER BY daterecorded_mileage DESC 
+     LIMIT 1`,
+    [id_usercar]
+  );
+  return rows[0] ?? null;
+};
+
+// Insertar nuevo registro en MileageLog
+exports.addMileageLog = async ({ id_usercar, start_mileage, value_mileage, diff_mileage }) => {
+  const [result] = await db.query(
+    `INSERT INTO MileageLog (id_usercar, start_mileage, value_mileage, diff_mileage)
+     VALUES (?, ?, ?, ?)`,
+    [id_usercar, start_mileage, value_mileage, diff_mileage]
+  );
+  return result;
+};
+
+exports.getTiposServicio = async () => { //carga los tipos de servicios
+  const [rows] = await db.query(
+    `SELECT 
+      id_tipo_servicio, 
+      nombre 
+     FROM tipo_servicio_bitacora 
+     WHERE activo = 1 
+     ORDER BY id_tipo_servicio ASC`
+  );
+  return rows;
+};
+
+//crea un nuevo registro en la bitacora
+exports.crearRegistro = async (data) => {
+  const {
+    id_user,
+    id_usercar,
+    id_tipo_servicio,
+    descripcion,
+    pieza_cambiada,
+    taller,
+    costo_piezas,
+    costo_mano_obra,
+    kilometraje,
+    fecha_servicio,
+  } = data;
+
+  const query = `
+    INSERT INTO bitacora 
+      (id_user, id_usercar, id_tipo_servicio, descripcion, pieza_cambiada, taller, costo_piezas, costo_mano_obra, kilometraje, fecha_servicio) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  const values = [
+    id_user,
+    id_usercar,
+    id_tipo_servicio,
+    descripcion,
+    pieza_cambiada || null,
+    taller || null,
+    costo_piezas || 0.00,
+    costo_mano_obra || 0.00,
+    kilometraje,
+    fecha_servicio,
+  ];
+
+  const [result] = await db.query(query, values);
+  return result;
+};
+
+exports.obtenerBitacoraPorAutoYServicio = async (id_usercar, id_tipo_servicio) => {
+  const query = `
+    SELECT 
+      b.id,
+      b.id_user,
+      b.id_usercar,
+      b.id_tipo_servicio,
+      ts.nombre AS nombre_tipo_servicio,
+      b.descripcion,
+      b.pieza_cambiada,
+      b.taller,
+      b.costo_piezas,
+      b.costo_mano_obra,
+      (b.costo_piezas + b.costo_mano_obra) AS costo_total,
+      b.kilometraje,
+      b.fecha_servicio,
+      b.created_at
+    FROM bitacora b
+    INNER JOIN tipo_servicio_bitacora ts ON b.id_tipo_servicio = ts.id_tipo_servicio
+    WHERE b.id_usercar = ? AND b.id_tipo_servicio = ?
+    ORDER BY b.fecha_servicio DESC, b.created_at DESC
+  `;
+
+  const [rows] = await db.query(query, [id_usercar, id_tipo_servicio]);
+  return rows;
+};
+
+
+
+
+
+
+
+
+
+// U11
 exports.getMaintenanceCarData = async (id_user, id_usercar) => {
   const [rows] = await db.query(`
     SELECT
@@ -148,6 +274,7 @@ exports.getMaintenanceCarData = async (id_user, id_usercar) => {
   return rows[0];
 };
 
+//neuorona
 exports.runMaintenanceNeuron = async ({
   typeUsercar,
   brand,

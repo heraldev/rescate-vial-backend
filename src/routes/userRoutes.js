@@ -1,39 +1,42 @@
 const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/UserController');
+const { verificarToken } = require('../middlewares/usersMiddlewares');
+const { apiLimiter } = require('../middlewares/rateLimiter');
 
-console.log("✅ userRoutes cargado");
+// Aplica el limitador global a todo este archivo de rutas:
+router.use(apiLimiter);
 
-router.get('/test', (req, res) => {
-  res.json({ ok: true, mensaje: 'userRoutes funcionando' });
-});
+//vehiculos
+router.post('/addcar', verificarToken, controller.addCar); // el usuario agrega un auto
+router.post('/getUserCars', verificarToken, controller.getUserCars); // obtiene los datos para crear la lista/menu dropdown de autos del usuario
+router.post('/getCarById', verificarToken, controller.getCarById); // obtener datos para vista completa de los vehiculos del usuario
+
+//solicitudes (para asistencia vial)
+router.post('/requestAssistance', verificarToken, controller.requestAssistance); //solicitar asitencia
+router.patch('/cancelAssistance', verificarToken, controller.cancelAssistance); //cancelar asistencia antes de que un taller la acepte
+router.get('/getServiceStatus/:id_user', verificarToken, controller.getServiceStatus);
+router.patch('/confirmAssistance', verificarToken, controller.confirmAssistance); //el usuario confirma que el taller le asista
+router.patch('/confirmarLlegada', verificarToken, controller.confirmarLlegada); //el usuario confirma la llegada del taller a su ubicacion
+router.patch('/confirmarTrabajo', verificarToken, controller.confirmarTrabajo); // el usuario confirma que el taller ha terminado su trabajo
+
+router.post('/calificar', verificarToken, controller.calificar); // el usuario califica al taller su servicio
+
+router.get('/mis-calificaciones/:id_user', verificarToken, controller.getMisCalificaciones); // carga las calificaciones que el usuario ha recibido de los talleres
 
 
-router.post('/addcar', controller.addCar); //agregar auto
-router.post('/getUserCars', controller.getUserCars); //lista dropdown
-router.post('/getCarById', controller.getCarById); //para vista autodata
-router.post('/requestAssistance', controller.requestAssistance); //solicitar asitencia
-router.patch('/cancelAssistance', controller.cancelAssistance); //cancelar asistencia antes de que un taller la acepte
-router.get('/getServiceStatus/:id_user', controller.getServiceStatus);
-router.patch('/confirmAssistance', controller.confirmAssistance);
-router.get('/conductores', controller.obtenerConductores);
-router.get('/dashboard', controller.obtenerDashboard);
-router.get('/pagos', controller.obtenerPagos);
-router.get('/reportes', controller.obtenerReportes);
+//BITACORA
+router.post('/mileage/update', verificarToken, controller.updateMileage); //actualiza el kilometraje del auto del usuario
+router.get('/tipos-servicio', verificarToken, controller.getTiposServicio); //carga los tipos de servicios
+router.post('/bitacora', verificarToken, controller.crearBitacora); //agregar registro a la bitacora
+router.post('/bitacora/por-servicio', verificarToken, controller.getBitacoraByServicio); //obtiene los registros de la bitacora por id_usercar y id_tipo_servicio
 
-router.patch('/confirmarLlegada', controller.confirmarLlegada);
-router.patch('/confirmarTrabajo', controller.confirmarTrabajo);
-router.post('/calificar', controller.calificar);
 
-//rankins
-router.get('/mis-calificaciones/:id_user', controller.getMisCalificaciones);
 
 //ruta neuorna
-router.post('/maintenance/recommendation', controller.getMaintenanceRecommendation);
-
-
+router.post('/maintenance/recommendation', verificarToken, controller.getMaintenanceRecommendation);
 //ruta simulada
-router.get('/posicionTaller/:id_servicio', controller.getPosicion);
+router.get('/posicionTaller/:id_servicio', verificarToken, controller.getPosicion);
 
 
 

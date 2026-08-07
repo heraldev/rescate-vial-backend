@@ -1,142 +1,9 @@
 const TallerModel = require('../models/mysql/tallerModel');
 const TallerMongoModel = require('../models/mysql/tallerMongoModel');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt');
-const mailService = require('./mailServices');
 
 const TallerService = {
 
-  // =========================
-  // OBTENER SOLICITUDES ADMIN
-  // =========================
-  async obtenerSolicitudes() {
-    return TallerModel.obtenerSolicitudes();
-  },
-
-  // =========================
-  // CREAR SOLICITUD (WEB)
-  // =========================
-  async crearSolicitud(data) {
-    const payload = {
-      nombre: data.nombre,
-      horario: data.horario || null,
-      telefono: data.telefono || null,
-      correo: data.correo,
-      servicioDomicilio: data.servicioDomicilio ?? 0,
-      fotos: data.fotos || null,
-      calle: data.calle || null,
-      numInt: data.numInt || null,
-      numExt: data.numExt || null,
-      cp: data.cp || null,
-      colonia: data.colonia || null,
-      municipio: data.municipio || null,
-      estado: data.estado || null,
-    };
-
-    const result = await TallerModel.crearSolicitud(payload);
-
-    await mailService.enviarSolicitudRegistrada({
-      correo: payload.correo,
-      nombre: payload.nombre
-    });
-
-    return result;
-  },
-
-  // =========================
-  // APROBAR / RECHAZAR
-  // =========================
-  async actualizarEstatus(id, status, motivoRechazo = null) {
-
-    const estado = status.trim().toLowerCase();
-    console.log("STATUS:", estado);
-
-    if (estado === 'aprobado') {
-
-      const result = await TallerModel.aprobarSolicitud(id);
-      console.log("RESULT:", result);
-
-      if (!result || !result.correo) {
-        throw new Error("No se obtuvo correo del usuario");
-      }
-
-      const token = jwt.sign(
-        {
-          idUser: result.idUser,
-          correo: result.correo,
-          tipo: 'crear_password_taller'
-        },
-        process.env.JWT_PASSWORD_SETUP_SECRET,
-        { expiresIn: '1d' }
-      );
-
-      const linkCrearPassword = `${process.env.FRONTEND_URL}/crear-password-taller?token=${token}`;
-
-      console.log("LINK:", linkCrearPassword);
-
-      try {
-        await mailService.enviarSolicitudAprobada({
-          correo: result.correo,
-          nombre: result.nombre,
-          linkCrearPassword
-        });
-
-        console.log("📩 correo enviado correctamente");
-      } catch (err) {
-        console.error("❌ error enviando correo:", err);
-      }
-
-      return { ok: true };
-    }
-
-    if (estado === 'rechazado') {
-      const result = await TallerModel.rechazarSolicitud(id, motivoRechazo);
-
-      await mailService.enviarSolicitudRechazada({
-        correo: result.correo,
-        nombre: result.nombre,
-        motivo: motivoRechazo
-      });
-
-      return { ok: true };
-    }
-
-    return TallerModel.actualizarEstatus(id, estado, motivoRechazo);
-  },
-
-  // =========================
-  // CREAR PASSWORD DESDE LINK
-  // =========================
-  async crearPasswordDesdeToken(token, password) {
-
-    let decoded;
-
-    try {
-      decoded = jwt.verify(token, process.env.JWT_PASSWORD_SETUP_SECRET);
-    } catch (err) {
-      throw new Error('Token inválido o expirado');
-    }
-
-    if (decoded.tipo !== 'crear_password_taller') {
-      throw new Error('Token no válido');
-    }
-
-    const { idUser } = decoded;
-
-    // hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // guardar en DB (usa tu método real)
-    await TallerModel.crearPassword(idUser, hashedPassword);
-
-    return { ok: true };
-  },
-
-  // =========================
-  // MOVIL - SOLICITUDES CERCANAS
-  // =========================
-
-
+  // T1 obtener solciitudes cercanas al taller
   async obtenerSolicitudesCercanas(id_user) {
     const ubicacion = await TallerModel.obtenerUbicacionTaller(id_user);
 
@@ -176,8 +43,7 @@ const TallerService = {
     };
   },
 
-  // Agrega estos métodos a tu TallerService existente
-
+  // T2 Taller acepta solicitud
   async aceptarSolicitud({ id_servicio, id_taller }) {
     await TallerMongoModel.cambiarEstadoSolicitud({
       id_servicio,
@@ -186,6 +52,7 @@ const TallerService = {
     });
   },
 
+  // T3 Taller cancela solicitud
   async cancelarSolicitud({ id_servicio }) {
     await TallerMongoModel.cambiarEstadoSolicitud({
       id_servicio,
@@ -194,30 +61,36 @@ const TallerService = {
     });
   },
 
+  // T4 Verificar si el taller tiene una solicitud aceptada
   async checkSolicitudAceptada(id_taller) {
     return await TallerMongoModel.getSolicitudAceptadaByTaller(id_taller);
   },
 
+  // T5 Verificar servicio activo
   async checkActiveService(id_taller) {
     return await TallerMongoModel.getActiveSolicitudByTaller(id_taller);
   },
 
+  // TT1
   async actualizarPosicionTaller({ id_servicio, lat, lng }) {
     await TallerMongoModel.actualizarPosicionTaller(id_servicio, lat, lng);
   },
-
+  // TT1
   async getPosicionTaller(id_servicio) {
     return await TallerMongoModel.getPosicionTaller(id_servicio);
   },
 
+  // T6/T7/T8 Taller inicia ruta a el usuario
   async cambiarEstado(id_servicio, estado) {
     await TallerMongoModel.cambiarEstadoSolicitud({ id_servicio, estado });
   },
 
+  //T9 Taller califica al usuario
   async calificar({ id_servicio, calificador, estrellas, comentario }) {
     await TallerMongoModel.guardarCalificacion({ id_servicio, calificador, estrellas, comentario });
   },
 
+  // T10 Lista las calficaciones que el taller ha recibido de los usuarios
   async getMisCalificacionesTaller(id_user) {
   return await TallerModel.getMisCalificacionesTaller(id_user);
 },

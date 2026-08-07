@@ -2,15 +2,17 @@ const axios = require('axios');
 require('dotenv').config();
 const vehicleModel = require('../models/mysql/providerModel');
 
+//obtiene marcas de autos
 const listBrands = async () => {
     return await vehicleModel.getVehicleBrands();
 };
 
+//obtiene modelos de autos por marca
 const listModelsByBrand = async (id_brand) => {
     return await vehicleModel.getVehicleModelsByBrand(id_brand);
 };
 
-
+/* Actualmente no se usan estas funciones, pero se dejan comentadas por si se desea usar la api de NHTSA
 // Api para obtener vehiculos NHTSA
 const fetchBrandsNH = async () => {
   const response = await axios.get(
@@ -25,9 +27,6 @@ const fetchModelsNH = async (make) => {
   return response.data.Results.map(m => m.Model_Name).sort();
 };
 
-const listProviders = async () => {
-  return await vehicleModel.getProviders();
-};
+*/
 
-
-module.exports = { listBrands, listModelsByBrand, listProviders };
+module.exports = { listBrands, listModelsByBrand };

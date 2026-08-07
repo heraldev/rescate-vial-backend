@@ -4,6 +4,7 @@ const db = require('../../config/db');
 
 const getCollection = () => client.db('RescateVialMongodb').collection('solicitudes');
 
+// U4
 const createAssistanceRequest = async ({ id_user, id_usercar, issue_type, description, ubicacion }) => {
   const doc = {
     id_user,
@@ -20,6 +21,7 @@ const createAssistanceRequest = async ({ id_user, id_usercar, issue_type, descri
   return await getCollection().insertOne(doc);
 };
 
+// U5/U6/U8
 const updateAssistanceStatus = async (id_servicio, estado) => {
   return await getCollection().updateOne(
     { _id: new ObjectId(id_servicio) },
@@ -27,6 +29,7 @@ const updateAssistanceStatus = async (id_servicio, estado) => {
   );
 };
 
+// U7
 const getActiveSolicitudByUser = async (id_user) => {
   return await getCollection().findOne(
     {
@@ -48,6 +51,7 @@ const getActiveSolicitudByUser = async (id_user) => {
   );
 };
 
+//U 12
 const getPosicionTaller = async (id_servicio) => {
   const db = client.db('RescateVialMongodb');
   const doc = await db.collection('solicitudes').findOne(

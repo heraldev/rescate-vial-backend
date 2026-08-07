@@ -2,6 +2,7 @@ const client = require('../../config/mongo');
 const { ObjectId } = require('mongodb');
 const pool = require('../../config/db');
 
+// T1
 const obtenerSolicitudesCercanas = async (latitud, longitud) => {
   const db = client.db('RescateVialMongodb');
   const collection = db.collection('solicitudes');
@@ -22,14 +23,13 @@ const obtenerSolicitudesCercanas = async (latitud, longitud) => {
   return solicitudes;
 };
 
-// ── Nueva función compartida para cambiar estado ──────────────────────────────
+// T2/T3/T6
 const cambiarEstadoSolicitud = async ({ id_servicio, estado, extra = {} }) => {
   const db = client.db('RescateVialMongodb');
   const collection = db.collection('solicitudes');
 
   const result = await collection.updateOne(
     { _id: new ObjectId(id_servicio) },
-
 
     {
       $set: {
@@ -47,6 +47,7 @@ const cambiarEstadoSolicitud = async ({ id_servicio, estado, extra = {} }) => {
   return result;
 };
 
+// T4
 const getSolicitudAceptadaByTaller = async (id_taller) => {
   const db = client.db('RescateVialMongodb');
 
@@ -74,6 +75,7 @@ const getSolicitudAceptadaByTaller = async (id_taller) => {
   );
 };
 
+// T5
 const getActiveSolicitudByTaller = async (id_taller) => {
   const db = client.db('RescateVialMongodb');
 
@@ -95,6 +97,7 @@ const getActiveSolicitudByTaller = async (id_taller) => {
     { sort: { fecha_solicitud: -1 } }
   );
 };
+
 
 const actualizarPosicionTaller = async (id_servicio, lat, lng) => {
   const db = client.db('RescateVialMongodb');
@@ -119,13 +122,7 @@ const getPosicionTaller = async (id_servicio) => {
 };
 
 
-
-
-
-
-
-
-
+// U9/T9
 const guardarCalificacion = async ({ id_servicio, calificador, estrellas, comentario }) => {
   const mongoDb = client.db('RescateVialMongodb');
 

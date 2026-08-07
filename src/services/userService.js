@@ -2,30 +2,37 @@ const userModel = require('../models/mysql/userModel');
 const userMongoModel = require('../models/mysql/userMongoModel.js');
 const TallerMongoModel = require('../models/mysql/tallerMongoModel');
 
+// U1
 const addCar = async (carData) => {
   return await userModel.insertUserCar(carData);
 };
 
+// U2
 const getUserCars = async (id_user) => {
   return await userModel.getUserCarsByUser(id_user);
 };
 
+// U3
 const getCarById = async (id_usercar) => {
   return await userModel.getCarById(id_usercar);
 };
 
+// U4
 const requestAssistance = async (data) => {
   return await userMongoModel.createAssistanceRequest(data);
 };
 
+// U5
 const cancelAssistance = async (id_servicio) => {
   return await userMongoModel.updateAssistanceStatus(id_servicio, 'cancelada');
 };
 
+// U6
 const confirmAssistance = async (id_servicio, accion) => {
   return await userMongoModel.updateAssistanceStatus(id_servicio, accion);
 };
 
+// U7
 const getServiceStatus = async (id_user) => {
   // 1. Buscar solicitud activa en Mongo
   const solicitud = await userMongoModel.getActiveSolicitudByUser(id_user);
@@ -63,25 +70,113 @@ const getServiceStatus = async (id_user) => {
   return response;
 };
 
-const getPosicionTaller = async (id_servicio) => {
-  return await userMongoModel.getPosicionTaller(id_servicio);
-};
 
+
+// U8
 const cambiarEstado = async (id_servicio, estado) => {
   return await userMongoModel.updateAssistanceStatus(id_servicio, estado);
 };
 
+// U9
 const calificar = async ({ id_servicio, calificador, estrellas, comentario }) => {
   return await TallerMongoModel.guardarCalificacion({ id_servicio, calificador, estrellas, comentario });
 };
 
+// U10
 const getMisCalificaciones = async (id_user) => {
   return await userModel.getMisCalificaciones(id_user);
 };
 
 
+// BITACORA
 
-//neurorona
+const addMileageLog = async ({ id_usercar, new_mileage }) => {
+  if (!id_usercar || new_mileage === undefined || new_mileage === null) {
+    throw new Error('El ID del vehículo y el nuevo kilometraje son requeridos.');
+  }
+
+  const parsedMileage = parseInt(new_mileage, 10);
+  if (isNaN(parsedMileage) || parsedMileage < 0) {
+    throw new Error('El kilometraje debe ser un número entero positivo.');
+  }
+
+  // 1. Obtener el auto y su último kilometraje
+  const car = await userModel.getCarById(id_usercar);
+  if (!car) {
+    throw new Error('Vehículo no encontrado.');
+  }
+
+  const previousMileage = car.current_mileage;
+
+  // 2. Validar que el kilometraje no retroceda
+  if (parsedMileage < previousMileage) {
+    throw new Error(
+      `El kilometraje ingresado (${parsedMileage} km) no puede ser menor al anterior (${previousMileage} km).`
+    );
+  }
+
+  // 3. Calcular la diferencia
+  const diff_mileage = parsedMileage - previousMileage;
+
+  // 4. Guardar en MileageLog
+  const result = await userModel.addMileageLog({
+    id_usercar,
+    start_mileage: previousMileage,
+    value_mileage: parsedMileage,
+    diff_mileage,
+  });
+
+  return {
+    id_mileages: result.insertId,
+    id_usercar,
+    start_mileage: previousMileage,
+    value_mileage: parsedMileage,
+    diff_mileage,
+  };
+};
+
+const getTiposServicio = async () => {
+  return await userModel.getTiposServicio();
+};
+
+const crearRegistro = async (data) => {
+  // Validaciones básicas de negocio antes de insertar
+  if (!data.id_user || !data.id_usercar || !data.id_tipo_servicio) {
+    throw new Error('Faltan identificadores clave (usuario, auto o servicio)');
+  }
+
+  if (!data.descripcion || !data.kilometraje || !data.fecha_servicio) {
+    throw new Error('Los campos descripción, kilometraje y fecha son obligatorios');
+  }
+
+  const result = await userModel.crearRegistro(data);
+  return {
+    id_bitacora: result.insertId,
+    ...data,
+  };
+};
+
+const obtenerRegistrosServicio = async (id_usercar, id_tipo_servicio) => {
+  if (!id_usercar || !id_tipo_servicio) {
+    throw new Error('Se requiere el ID del auto y del tipo de servicio.');
+  }
+
+  const registros = await userModel.obtenerBitacoraPorAutoYServicio(
+    id_usercar,
+    id_tipo_servicio
+  );
+
+  return registros;
+};
+
+
+
+
+
+
+
+
+// U11
 const getMaintenanceRecommendation = async ({ id_user, id_usercar, current_mileage }) => {
   const autoData = await userModel.getMaintenanceCarData(id_user, id_usercar);
 
@@ -123,6 +218,11 @@ const getMaintenanceRecommendation = async ({ id_user, id_usercar, current_milea
   };
 };
 
+// U12
+const getPosicionTaller = async (id_servicio) => {
+  return await userMongoModel.getPosicionTaller(id_servicio);
+};
+
 
 
 module.exports = {
@@ -138,4 +238,8 @@ module.exports = {
   calificar,
   getMisCalificaciones,
   getMaintenanceRecommendation,
+  addMileageLog,
+  getTiposServicio,
+  crearRegistro,
+  obtenerRegistrosServicio,
 };
