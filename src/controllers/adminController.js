@@ -38,6 +38,39 @@ const AdminController = {
     }
   },
 
+
+  //------------Conductores/Users---------------------
+
+  // GET /api/admin/conductores-stats
+  async obtenerConductoresStats(req, res) {
+    try {
+      const data = await AdminService.obtenerDashboardConductores();
+      res.json({
+        ok: true,
+        data
+      });
+    } catch (error) {
+      console.error('Error al obtener estadísticas de conductores:', error);
+      res.status(500).json({
+        ok: false,
+        mensaje: 'Error al obtener métricas de conductores'
+      });
+    }
+  },
+
+  async obtenerSolicitudesStats(req, res) {
+    try {
+      const data = await AdminService.obtenerDashboardSolicitudes();
+      res.json({ ok: true, data });
+    } catch (error) {
+      console.error('Error al obtener solicitudes:', error);
+      res.status(500).json({ ok: false, mensaje: 'Error al obtener solicitudes' });
+    }
+  },
+
+
+
+
 };
 
 module.exports = AdminController;

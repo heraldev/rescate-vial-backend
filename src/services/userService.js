@@ -1,6 +1,8 @@
 const userModel = require('../models/mysql/userModel');
 const userMongoModel = require('../models/mysql/userMongoModel.js');
 const TallerMongoModel = require('../models/mysql/tallerMongoModel');
+const { fetchPartMetadataFromAI } = require('./aiServices');
+const { calculatePartHealth } = require('../utils/healthCalculator');
 
 // U1
 const addCar = async (carData) => {
@@ -88,7 +90,7 @@ const getMisCalificaciones = async (id_user) => {
 };
 
 
-// BITACORA
+//-------------------BITACORA-----------------------
 
 const addMileageLog = async ({ id_usercar, new_mileage }) => {
   if (!id_usercar || new_mileage === undefined || new_mileage === null) {
@@ -169,13 +171,6 @@ const obtenerRegistrosServicio = async (id_usercar, id_tipo_servicio) => {
   return registros;
 };
 
-
-
-
-
-
-
-
 // U11
 const getMaintenanceRecommendation = async ({ id_user, id_usercar, current_mileage }) => {
   const autoData = await userModel.getMaintenanceCarData(id_user, id_usercar);
@@ -218,6 +213,90 @@ const getMaintenanceRecommendation = async ({ id_user, id_usercar, current_milea
   };
 };
 
+
+
+//U13
+const getVehiclePartsHealth = async (id_usercar) => {
+  // 1. Obtener la información del auto y su kilometraje actual
+  const car = await userModel.getCarById(id_usercar);
+  if (!car) throw new Error('Vehículo no encontrado');
+
+  const currentMileage = car.current_mileage;
+
+  // 2. Obtener los servicios/piezas registrados en la bitácora del usuario
+  const bitacoraEntries = await userModel.getLatestBitacoraPerPart(id_usercar);
+
+  const partsHealthSummary = [];
+
+  // 3. Procesar cada pieza registrada en la bitácora
+  for (const entry of bitacoraEntries) {
+    const partName = entry.pieza_cambiada || entry.nombre_servicio;
+    
+    // a. Buscar en catálogo si existen los parámetros de esta pieza
+    let catalogItem = await userModel.getCatalogPart(car.brand_usercar, car.model_usercar, partName);
+
+    // b. Si NO existe en el catálogo, llamamos a la IA y la guardamos
+    if (!catalogItem) {
+      const aiData = await fetchPartMetadataFromAI(
+        car.brand_usercar,
+        car.model_usercar,
+        car.year_usercar,
+        partName
+      );
+
+      const newPartId = await userModel.saveCatalogPart({
+        id_tipo_servicio: entry.id_tipo_servicio,
+        brand_car: car.brand_usercar,
+        model_car: car.model_usercar,
+        name_part: partName,
+        lifespan_km: aiData.lifespan_km,
+        fatigue_k: aiData.fatigue_k
+      });
+
+      catalogItem = {
+        id_part: newPartId,
+        lifespan_km: aiData.lifespan_km,
+        fatigue_k: aiData.fatigue_k
+      };
+    }
+
+    // c. Calcular salud con el motor matemático
+    const healthData = calculatePartHealth(
+      currentMileage,
+      entry.kilometraje, // km en el que se le hizo el servicio
+      catalogItem.lifespan_km,
+      catalogItem.fatigue_k
+    );
+
+    partsHealthSummary.push({
+      id_bitacora: entry.id_bitacora,
+      part_name: partName,
+      service_type: entry.nombre_servicio,
+      last_change_km: entry.kilometraje,
+      last_change_date: entry.fecha_servicio,
+      lifespan_km: catalogItem.lifespan_km,
+      fatigue_k: catalogItem.fatigue_k,
+      ...healthData // agrega kmTraveled, healthPercentage, kmRemaining, status
+    });
+  }
+
+  return {
+    car_info: {
+      id_usercar: car.id_usercar,
+      brand: car.brand_usercar,
+      model: car.model_usercar,
+      current_mileage: currentMileage
+    },
+    parts: partsHealthSummary
+  };
+};
+
+
+
+
+//--------FIN BITACORA----------------
+
+
 // U12
 const getPosicionTaller = async (id_servicio) => {
   return await userMongoModel.getPosicionTaller(id_servicio);
@@ -242,4 +321,5 @@ module.exports = {
   getTiposServicio,
   crearRegistro,
   obtenerRegistrosServicio,
+  getVehiclePartsHealth,
 };

@@ -29,7 +29,9 @@ const TallerModel = {
   //funcion movil
   async obtenerUbicacionTaller(id_user) {
     const [rows] = await pool.query(`
-      SELECT uta.latitud, uta.longitud
+      SELECT 
+      uta.latitude_addresstaller AS latitud, 
+      uta.longitude_addresstaller AS longitud
       FROM UserTaller ut
       INNER JOIN UserTallerAddress uta 
         ON ut.id_usertaller = uta.id_usertaller
@@ -44,7 +46,7 @@ const TallerModel = {
 
   // T10 Lista las calficaciones que el taller ha recibido de los usuarios
   async getMisCalificacionesTaller(id_user) {
-  const [rows] = await pool.query(`
+    const [rows] = await pool.query(`
     SELECT
       sh.id_history,
       sh.id_service,
@@ -85,8 +87,8 @@ const TallerModel = {
     ORDER BY sh.fecha_solicitud DESC, r.date_rating DESC
   `, [id_user]);
 
-  return rows;
-}
+    return rows;
+  }
 
 
 };

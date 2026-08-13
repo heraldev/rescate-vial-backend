@@ -295,6 +295,25 @@ const getBitacoraByServicio = async (req, res) => {
 };
 
 
+const getPartsHealth = async (req, res) => {
+  try {
+    const { id_usercar } = req.params;
+
+    const result = await userService.getVehiclePartsHealth(id_usercar);
+
+    res.status(200).json({
+      ok: true,
+      data: result
+    });
+  } catch (error) {
+    console.error('❌ Error en getPartsHealth:', error);
+    res.status(500).json({
+      ok: false,
+      message: error.message || 'Error al calcular la salud de las piezas'
+    });
+  }
+};
+
 
 
 
@@ -362,4 +381,5 @@ module.exports = {
   getTiposServicio,
   crearBitacora,
   getBitacoraByServicio,
+  getPartsHealth
 };

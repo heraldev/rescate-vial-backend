@@ -50,7 +50,7 @@ exports.getCarById = async (id_usercar) => {
         c.brand_usercar,
         c.model_usercar,
         c.year_usercar,
-        c.mileage_usercar AS initial_mileage,
+        c.mileage_usercar,
         COALESCE(m.value_mileage, c.mileage_usercar) AS current_mileage,
         m.daterecorded_mileage AS last_mileage_update,
         c.colour_usercar
@@ -79,8 +79,8 @@ exports.getTallerByIdUser = async (id_user) => {
       ut.name_usertaller,
       ut.schudel_usertaller,
       ut.phone_taller,
-      uta.latitud,
-      uta.longitud
+      uta.latitude_addresstaller AS latitud,
+      uta.longitude_addresstaller AS longitud
      FROM UserTaller ut
      LEFT JOIN UserTallerAddress uta ON uta.id_usertaller = ut.id_usertaller
      WHERE ut.id_user = ?
@@ -135,7 +135,7 @@ exports.getMisCalificaciones = async (id_user) => {
 };
 
 
-// BITACORA
+// ------------------BITACORA--------------------------
 
 // Obtener el último kilometraje (para calcular la diferencia)
 exports.getLatestMileage = async (id_usercar) => {
@@ -210,6 +210,42 @@ exports.crearRegistro = async (data) => {
   return result;
 };
 
+// Buscar pieza específica para un auto en el catálogo
+exports.getCatalogPart = async (brand, model, partName) => {
+  const [rows] = await db.query(
+    `SELECT * FROM catalog_parts 
+     WHERE (brand_car = ? AND model_car = ? AND name_part = ?)
+        OR (brand_car = 'GENERIC' AND name_part = ?)
+     ORDER BY brand_car DESC LIMIT 1`,
+    [brand, model, partName, partName]
+  );
+  return rows[0] ?? null;
+};
+
+// Guardar nueva pieza obtenida por IA
+exports.saveCatalogPart = async (data) => {
+  const { id_tipo_servicio, brand_car, model_car, name_part, lifespan_km, fatigue_k } = data;
+  const [result] = await db.query(
+    `INSERT INTO catalog_parts (id_tipo_servicio, brand_car, model_car, name_part, lifespan_km, fatigue_k)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [id_tipo_servicio, brand_car, model_car, name_part, lifespan_km, fatigue_k]
+  );
+  return result.insertId;
+};
+
+// Obtener los últimos registros de bitácora por pieza para un auto
+exports.getLatestBitacoraPerPart = async (id_usercar) => {
+  const [rows] = await db.query(
+    `SELECT b.*, t.nombre AS nombre_servicio
+     FROM bitacora b
+     INNER JOIN tipo_servicio_bitacora t ON b.id_tipo_servicio = t.id_tipo_servicio
+     WHERE b.id_usercar = ?
+     ORDER BY b.fecha_servicio DESC, b.kilometraje DESC`,
+    [id_usercar]
+  );
+  return rows;
+};
+
 exports.obtenerBitacoraPorAutoYServicio = async (id_usercar, id_tipo_servicio) => {
   const query = `
     SELECT 
@@ -243,7 +279,7 @@ exports.obtenerBitacoraPorAutoYServicio = async (id_usercar, id_tipo_servicio) =
 
 
 
-
+//---------FIN BITACORA----------------
 
 // U11
 exports.getMaintenanceCarData = async (id_user, id_usercar) => {

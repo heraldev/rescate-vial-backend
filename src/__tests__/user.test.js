@@ -39,8 +39,7 @@ describe('=== Pruebas Unitarias: User Controller ===', () => {
         .send({});
 
       expect(res.statusCode).toEqual(400);
-      expect(res.body.message).toBe('id_usercar es obligatorio');
-    });
+expect(res.body.message).toBe('el id usercar es obligatorio');    });
 
     it('Escenario 3 (No encontrado): Debería regresar 404 si el vehículo no existe en el catálogo', async () => {
       userService.getCarById.mockResolvedValue(null);

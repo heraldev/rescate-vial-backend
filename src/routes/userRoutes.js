@@ -30,6 +30,7 @@ router.post('/mileage/update', verificarToken, controller.updateMileage); //actu
 router.get('/tipos-servicio', verificarToken, controller.getTiposServicio); //carga los tipos de servicios
 router.post('/bitacora', verificarToken, controller.crearBitacora); //agregar registro a la bitacora
 router.post('/bitacora/por-servicio', verificarToken, controller.getBitacoraByServicio); //obtiene los registros de la bitacora por id_usercar y id_tipo_servicio
+router.get('/vehicle/:id_usercar/parts-health', verificarToken, controller.getPartsHealth);
 
 
 

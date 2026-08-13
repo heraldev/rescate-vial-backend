@@ -1,4 +1,6 @@
 const pool = require('../../config/db');
+const client = require('../../config/mongo');
+const { ObjectId } = require('mongodb');
 
 const AdminModel = {
 
@@ -74,7 +76,7 @@ const AdminModel = {
       // 4. Insertar en Users (Propietario como Usuario Oficial con Rol 3)
       const [userResult] = await conn.query(
         `INSERT INTO Users (id_userrol, name_user, lastname1_user, lastname2_user, email_user, password_user, status_user, email_verified_user) VALUES (?, ?, ?, ?, ?, NULL, 1, 0)`,
-        [ 3, solicitud.owner_name_tr, solicitud.lastname1_tr, solicitud.lastname2_tr, solicitud.email_tr ]
+        [3, solicitud.owner_name_tr, solicitud.lastname1_tr, solicitud.lastname2_tr, solicitud.email_tr]
       );
 
       const idUser = userResult.insertId;
@@ -138,7 +140,153 @@ const AdminModel = {
   },
 
 
-  
+  //------------Conductores/Users---------------------
+
+  // 1. OBTENER METRICAS TOP (KPIs de usuarios rol 2)
+  async obtenerMetricasConductores() {
+    // Consulta optimizada para traer los 3 contadores en una sola petición
+    const query = `
+      SELECT 
+        COUNT(CASE WHEN id_userrol = 2 THEN 1 END) AS total_registrados,
+        COUNT(CASE WHEN id_userrol = 2 AND status_user = 0 THEN 1 END) AS bloqueados,
+        (
+          SELECT COUNT(DISTINCT id_user) 
+          FROM ServiceHistory 
+          WHERE DATE_FORMAT(fecha_solicitud, '%Y-%m') = DATE_FORMAT(CURRENT_DATE(), '%Y-%m')
+        ) AS activos_este_mes
+      FROM Users;
+    `;
+
+    const [rows] = await pool.query(query);
+    return rows[0];
+  },
+
+  // 2. OBTENER TABLA DE CONDUCTORES / USUARIOS CON HISTORIAL
+  async obtenerTablaConductores() {
+    const query = `
+      SELECT 
+        u.id_user,
+        CONCAT(u.name_user, ' ', u.lastname1_user) AS nombre_completo,
+        u.email_user,
+        u.date_register_user,
+        u.status_user,
+        COUNT(sh.id_user) AS total_servicios,
+        MAX(sh.fecha_solicitud) AS ultimo_servicio
+      FROM Users u
+      LEFT JOIN ServiceHistory sh ON u.id_user = sh.id_user
+      WHERE u.id_userrol = 2
+      GROUP BY u.id_user
+      ORDER BY u.date_register_user DESC;
+    `;
+
+    const [rows] = await pool.query(query);
+    return rows;
+  },
+
+
+
+  //--------SOlicitudes de talleres en MongoDB para el dashboard del admin (KPIs y tabla de solicitudes)--------
+  async obtenerMetricasSolicitudes() {
+    const db = client.db('RescateVialMongodb'); // Tu base de datos en Mongo
+
+    // Rango de fechas para el día de hoy
+    const inicioHoy = new Date();
+    inicioHoy.setHours(0, 0, 0, 0);
+
+    const finHoy = new Date();
+    finHoy.setHours(23, 59, 59, 999);
+
+    const matchHoy = {
+      fecha_solicitud: { $gte: inicioHoy, $lte: finHoy }
+    };
+
+    const estadosProgreso = [
+      'pendiente', 'en_proceso', 'aceptada', 'en_ruta',
+      'taller_llego', 'trabajo_en_proceso', 'trabajo_terminado'
+    ];
+
+    const stats = await db.collection('solicitudes').aggregate([
+      { $match: matchHoy },
+      {
+        $group: {
+          _id: null,
+          totalesHoy: { $sum: 1 },
+          enProgreso: {
+            $sum: {
+              $cond: [{ $in: ['$estado', estadosProgreso] }, 1, 0]
+            }
+          },
+          completadas: {
+            $sum: {
+              $cond: [{ $in: ['$estado', ['completada', 'calificada']] }, 1, 0]
+            }
+          },
+          canceladas: {
+            $sum: {
+              $cond: [{ $eq: ['$estado', 'cancelada'] }, 1, 0]
+            }
+          }
+        }
+      }
+    ]).toArray();
+
+    return stats[0] || { totalesHoy: 0, enProgreso: 0, completadas: 0, canceladas: 0 };
+  },
+
+  // OBTENER SOLICITUDES DE MONGO Y RELLENAR NOMBRES DESDE MYSQL
+  async obtenerTablaSolicitudes() {
+    const db = client.db('RescateVialMongodb');
+
+    // 1. Obtener las últimas 50 solicitudes de Mongo
+    const solicitudesMongo = await db.collection('solicitudes')
+      .find({})
+      .sort({ fecha_solicitud: -1 })
+      .limit(50)
+      .toArray();
+
+    if (solicitudesMongo.length === 0) return [];
+
+    // 2. Extraer IDs únicos para consultar en MySQL
+    const userIds = [...new Set(solicitudesMongo.map(s => s.id_user).filter(Boolean))];
+    const tallerUserIds = [...new Set(solicitudesMongo.map(s => s.id_taller).filter(Boolean))];
+
+    // Mapas auxiliares para búsqueda O(1)
+    const userMap = {};
+    const tallerMap = {};
+
+    // 3. Consultar nombres de Clientes en MySQL (Users)
+    if (userIds.length > 0) {
+      const [users] = await pool.query(
+        `SELECT id_user, CONCAT(name_user, ' ', lastname1_user) AS nombre_completo 
+         FROM Users WHERE id_user IN (?)`,
+        [userIds]
+      );
+      users.forEach(u => { userMap[u.id_user] = u.nombre_completo; });
+    }
+
+    // 4. Consultar nombres de Talleres en MySQL (UserTaller mapeado por id_user)
+    if (tallerUserIds.length > 0) {
+      const [talleres] = await pool.query(
+        `SELECT id_user, name_usertaller FROM UserTaller WHERE id_user IN (?)`,
+        [tallerUserIds]
+      );
+      talleres.forEach(t => { tallerMap[t.id_user] = t.name_usertaller; });
+    }
+
+    // 5. Unir los datos
+    return solicitudesMongo.map(s => ({
+      ...s,
+      nombre_cliente: userMap[s.id_user] || `Usuario #${s.id_user}`,
+      nombre_taller: tallerMap[s.id_taller] || 'Sin asignar'
+    }));
+  },
+
+
+
+
+
+
+
 };
 
 module.exports = AdminModel;

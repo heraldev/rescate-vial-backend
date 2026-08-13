@@ -185,7 +185,7 @@ const TallerController = {
     try {
       const { id_servicio, estrellas, comentario } = req.body;
       if (!id_servicio || !estrellas) return res.status(400).json({ message: 'Faltan datos' });
-      await TallerService.califiar({ id_servicio, calificador: 'taller', estrellas, comentario });
+      await TallerService.calificar({ id_servicio, calificador: 'taller', estrellas, comentario });
       res.status(200).json({ ok: true });
     } catch (error) {
       res.status(500).json({ message: error.message });
